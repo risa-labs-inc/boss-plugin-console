@@ -1,0 +1,21 @@
+{
+  "manifestVersion": 1,
+  "pluginId": "ai.rever.boss.plugin.dynamic.console",
+  "displayName": "Console (Dynamic)",
+  "version": "1.0.0",
+  "apiVersion": "1.0",
+  "mainClass": "ai.rever.boss.plugin.dynamic.console.ConsoleDynamicPlugin",
+  "type": "panel",
+  "description": "Displays captured stdout/stderr logs in a side panel",
+  "author": "Rever AI",
+  "url": "https://github.com/ReverAI/boss-plugin-console",
+  "panel": {
+    "position": "left_bottom",
+    "priority": 100
+  },
+  "sandbox": {
+    "maxThreads": 4,
+    "maxRestartAttempts": 3,
+    "heartbeatIntervalMs": 5000
+  }
+}
