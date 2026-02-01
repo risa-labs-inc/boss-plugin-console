@@ -12,7 +12,7 @@ import ai.rever.boss.plugin.api.PluginContext
 class ConsoleDynamicPlugin : DynamicPlugin {
     override val pluginId: String = "ai.rever.boss.plugin.dynamic.console"
     override val displayName: String = "Console (Dynamic)"
-    override val version: String = "1.0.0"
+    override val version: String = "1.0.3"
     override val description: String = "Displays captured stdout/stderr logs in a side panel"
     override val author: String = "Rever AI"
     override val url: String = "https://github.com/ReverAI/boss-plugin-console"
