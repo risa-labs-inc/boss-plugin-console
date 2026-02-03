@@ -13,8 +13,8 @@ import androidx.compose.material.icons.outlined.Info
  * Displays captured stdout/stderr logs in a side panel.
  */
 object ConsoleInfo : PanelInfo {
-    override val id = PanelId("dynamic-console", 16) // After Git Log (15)
-    override val displayName = "Console (Dynamic)"
+    override val id = PanelId("console", 16)
+    override val displayName = "Console"
     override val icon = Icons.Outlined.Info
     override val defaultSlotPosition = left.bottom
 }
