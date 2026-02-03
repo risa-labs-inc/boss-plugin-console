@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
 Implementation-Title: BOSS Console Plugin
-Implementation-Version: 1.0.2
+Implementation-Version: 1.0.3
 Main-Class: ai.rever.boss.plugin.dynamic.console.ConsoleDynamicPlugin
 
