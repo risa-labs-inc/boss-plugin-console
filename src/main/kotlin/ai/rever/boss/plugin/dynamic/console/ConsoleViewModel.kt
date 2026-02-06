@@ -1,135 +1,68 @@
 package ai.rever.boss.plugin.dynamic.console
 
-import kotlinx.coroutines.flow.MutableStateFlow
+import ai.rever.boss.plugin.api.LogDataProvider
+import ai.rever.boss.plugin.api.LogEntryData
+import ai.rever.boss.plugin.api.LogFilterData
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * ViewModel for Console tab.
  *
- * Manages log capture, filtering, and search functionality.
- * Uses GlobalLogCapture singleton to access logs from app startup.
+ * Delegates to LogDataProvider from the host application for log capture,
+ * filtering, and search functionality. This avoids classloader isolation
+ * issues that occur when dynamic plugins try to access GlobalLogCapture directly.
+ *
+ * @param logDataProvider Provider from host app that has access to GlobalLogCapture
  */
-class ConsoleViewModel {
-    // Log capture system (global singleton started in main.kt)
-    private val logCapture = GlobalLogCapture.getLogCapture()
-
-    // All logs (filtered by current filter)
-    private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
-    val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
-
-    // Current filter
-    private val _filter = MutableStateFlow(LogFilter.ALL)
-    val filter: StateFlow<LogFilter> = _filter.asStateFlow()
-
-    // Search query
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-
-    // Auto-scroll enabled
-    private val _autoScroll = MutableStateFlow(true)
-    val autoScroll: StateFlow<Boolean> = _autoScroll.asStateFlow()
-
-    init {
-        // Listen for new log entries
-        // (Log capture already started globally in main.kt)
-        logCapture.addListener { entry ->
-            updateLogs()
-        }
-
-        // Initial load (will load all logs from app startup)
-        updateLogs()
-    }
-
-    /**
-     * Update filtered logs based on current filter and search.
-     */
-    private fun updateLogs() {
-        val allLogs = logCapture.getLogs()
-
-        // Apply filter
-        val filtered = when (_filter.value) {
-            LogFilter.ALL -> allLogs
-            LogFilter.STDOUT -> allLogs.filter { it.source == LogSource.STDOUT }
-            LogFilter.STDERR -> allLogs.filter { it.source == LogSource.STDERR }
-        }
-
-        // Apply search
-        val searched = if (_searchQuery.value.isNotEmpty()) {
-            filtered.filter {
-                it.message.contains(_searchQuery.value, ignoreCase = true)
-            }
-        } else {
-            filtered
-        }
-
-        _logs.value = searched
-    }
+class ConsoleViewModel(
+    private val logDataProvider: LogDataProvider
+) {
+    // Delegate to provider's StateFlows
+    val logs: StateFlow<List<LogEntryData>> = logDataProvider.logs
+    val filter: StateFlow<LogFilterData> = logDataProvider.filter
+    val searchQuery: StateFlow<String> = logDataProvider.searchQuery
+    val autoScroll: StateFlow<Boolean> = logDataProvider.autoScroll
 
     /**
      * Set log filter.
      */
-    fun setFilter(filter: LogFilter) {
-        _filter.value = filter
-        updateLogs()
+    fun setFilter(filter: LogFilterData) {
+        logDataProvider.setFilter(filter)
     }
 
     /**
      * Set search query.
      */
     fun setSearchQuery(query: String) {
-        _searchQuery.value = query
-        updateLogs()
+        logDataProvider.setSearchQuery(query)
     }
 
     /**
      * Toggle auto-scroll.
      */
     fun toggleAutoScroll() {
-        _autoScroll.value = !_autoScroll.value
+        logDataProvider.toggleAutoScroll()
     }
 
     /**
      * Clear all logs.
      */
     fun clearLogs() {
-        logCapture.clear()
-        updateLogs()
+        logDataProvider.clearLogs()
     }
 
     /**
      * Get all logs as text (for copy to clipboard).
      */
     fun getAllLogsAsText(): String {
-        return _logs.value.joinToString("\n") { entry ->
-            "[${entry.formatTimestamp()}] [${entry.source}] ${entry.message}"
-        }
+        return logDataProvider.exportLogs()
     }
 
     /**
      * Clean up resources.
+     * Note: We don't stop log capture here since the provider is managed by the host app.
      */
     fun dispose() {
-        logCapture.stop()
+        // No-op - provider lifecycle is managed by host application
     }
-}
-
-/**
- * Log filter options.
- */
-enum class LogFilter {
-    /**
-     * Show all logs (stdout + stderr)
-     */
-    ALL,
-
-    /**
-     * Show only stdout logs
-     */
-    STDOUT,
-
-    /**
-     * Show only stderr logs
-     */
-    STDERR
 }

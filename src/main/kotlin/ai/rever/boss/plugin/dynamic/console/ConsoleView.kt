@@ -1,5 +1,8 @@
 package ai.rever.boss.plugin.dynamic.console
 
+import ai.rever.boss.plugin.api.LogEntryData
+import ai.rever.boss.plugin.api.LogFilterData
+import ai.rever.boss.plugin.api.LogSourceData
 import ai.rever.boss.plugin.scrollbar.getPanelScrollbarConfig
 import ai.rever.boss.plugin.scrollbar.lazyListScrollbar
 
@@ -37,6 +40,16 @@ import java.awt.datatransfer.StringSelection
 @OptIn(ExperimentalComposeUiApi::class)
 private fun createTextClipEntry(text: String): ClipEntry {
     return ClipEntry(StringSelection(text))
+}
+
+/**
+ * Get the display color for a log source.
+ */
+private fun getLogColor(source: LogSourceData): Color {
+    return when (source) {
+        LogSourceData.STDOUT -> Color(0xFFCCCCCC) // Light gray
+        LogSourceData.STDERR -> Color(0xFFFF6B6B) // Red
+    }
 }
 
 /**
@@ -129,10 +142,10 @@ fun ConsoleView(viewModel: ConsoleViewModel) {
  */
 @Composable
 private fun ConsoleToolbar(
-    filter: LogFilter,
+    filter: LogFilterData,
     searchQuery: String,
     autoScroll: Boolean,
-    onFilterChange: (LogFilter) -> Unit,
+    onFilterChange: (LogFilterData) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onToggleAutoScroll: () -> Unit,
     onClear: () -> Unit,
@@ -189,7 +202,7 @@ private fun ConsoleToolbar(
                     expanded = filterMenuExpanded,
                     onDismissRequest = { filterMenuExpanded = false }
                 ) {
-                    LogFilter.values().forEach { f ->
+                    LogFilterData.values().forEach { f ->
                         DropdownMenuItem(onClick = {
                             onFilterChange(f)
                             filterMenuExpanded = false
@@ -293,7 +306,7 @@ private fun ConsoleToolbar(
  * Single log entry row.
  */
 @Composable
-private fun LogEntryRow(entry: LogEntry) {
+private fun LogEntryRow(entry: LogEntryData) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -312,8 +325,8 @@ private fun LogEntryRow(entry: LogEntry) {
         Text(
             text = entry.source.name,
             color = when (entry.source) {
-                LogSource.STDOUT -> Color(0xFF4A9EFF)
-                LogSource.STDERR -> Color(0xFFFF6B6B)
+                LogSourceData.STDOUT -> Color(0xFF4A9EFF)
+                LogSourceData.STDERR -> Color(0xFFFF6B6B)
             },
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
@@ -322,7 +335,7 @@ private fun LogEntryRow(entry: LogEntry) {
         // Message (no fontFamily to support emojis)
         Text(
             text = entry.message,
-            color = entry.color,
+            color = getLogColor(entry.source),
             fontSize = 12.sp,
             modifier = Modifier.weight(1f)
         )
