@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "ai.rever.boss.plugin.dynamic"
-version = "1.0.4"
+version = "1.0.5"
 
 java {
     toolchain {
@@ -21,18 +21,24 @@ kotlin {
     }
 }
 
+// Auto-detect CI environment
+val useLocalDependencies = System.getenv("CI") != "true"
+val bossPluginApiPath = "../boss-plugin-api"
+
 repositories {
-    mavenLocal() // For local development with unreleased plugin-api
     google()
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
 }
 
 dependencies {
-    // Plugin API from Maven Central (1.0.8 adds LogDataProvider)
-    implementation("com.risaboss:plugin-api-desktop:1.0.10")
-    implementation("com.risaboss:plugin-scrollbar-desktop:1.0.4")
-    implementation("com.risaboss:plugin-logging-desktop:1.0.3")
+    if (useLocalDependencies) {
+        // Local development: use boss-plugin-api JAR from sibling repo
+        compileOnly(files("$bossPluginApiPath/build/libs/boss-plugin-api-1.0.18.jar"))
+    } else {
+        // CI: use downloaded JAR
+        compileOnly(files("build/downloaded-deps/boss-plugin-api.jar"))
+    }
     
     // Compose dependencies
     implementation(compose.desktop.currentOs)
