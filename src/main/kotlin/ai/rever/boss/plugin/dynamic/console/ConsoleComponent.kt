@@ -3,6 +3,7 @@ package ai.rever.boss.plugin.dynamic.console
 import ai.rever.boss.plugin.api.LogDataProvider
 import ai.rever.boss.plugin.api.PanelComponentWithUI
 import ai.rever.boss.plugin.api.PanelInfo
+import ai.rever.boss.plugin.ui.BossTheme
 import androidx.compose.runtime.Composable
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.Lifecycle.Callbacks
@@ -38,6 +39,8 @@ class ConsoleComponent(
 
     @Composable
     override fun Content() {
-        ConsoleView(viewModel)
+        BossTheme {
+            ConsoleView(viewModel)
+        }
     }
 }

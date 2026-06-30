@@ -33,6 +33,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import ai.rever.boss.plugin.ui.BossThemeColors
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import java.awt.datatransfer.StringSelection
@@ -83,7 +84,7 @@ fun ConsoleView(viewModel: ConsoleViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1E1E1E)) // Dark background
+            .background(BossThemeColors.BackgroundColor)
     ) {
         // Toolbar
         ConsoleToolbar(
@@ -104,7 +105,7 @@ fun ConsoleView(viewModel: ConsoleViewModel) {
             }
         )
 
-        Divider(color = Color(0xFF333333))
+        Divider(color = BossThemeColors.BorderColor)
 
         // Log display
         if (logs.isEmpty()) {
@@ -115,7 +116,7 @@ fun ConsoleView(viewModel: ConsoleViewModel) {
             ) {
                 Text(
                     "No logs captured yet",
-                    color = Color(0xFF888888),
+                    color = BossThemeColors.TextSecondary,
                     fontSize = 14.sp
                 )
             }
@@ -205,7 +206,7 @@ private fun ConsoleToolbar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF2B2B2B))
+            .background(BossThemeColors.SurfaceColor)
             .padding(8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -224,12 +225,12 @@ private fun ConsoleToolbar(
                         .height(28.dp)
                         .clickable { filterMenuExpanded = true }
                         .background(
-                            Color(0xFF1E1F22),
+                            BossThemeColors.BackgroundColor,
                             RoundedCornerShape(4.dp)
                         )
                         .border(
                             1.dp,
-                            Color(0xFF555555),
+                            BossThemeColors.BorderColor,
                             RoundedCornerShape(4.dp)
                         )
                         .padding(horizontal = 12.dp, vertical = 2.dp),
@@ -239,12 +240,12 @@ private fun ConsoleToolbar(
                     Text(
                         text = filter.name,
                         style = MaterialTheme.typography.body2,
-                        color = Color.White
+                        color = BossThemeColors.TextPrimary
                     )
                     Icon(
                         Icons.Default.ArrowDropDown,
                         "Filter",
-                        tint = Color.White,
+                        tint = BossThemeColors.TextPrimary,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -273,7 +274,7 @@ private fun ConsoleToolbar(
                     .height(28.dp),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.body2.copy(
-                    color = Color.White
+                    color = BossThemeColors.TextPrimary
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colors.primary),
                 decorationBox = { innerTextField ->
@@ -281,12 +282,12 @@ private fun ConsoleToolbar(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(
-                                Color(0xFF1E1F22), // Dark surface
+                                BossThemeColors.BackgroundColor,
                                 RoundedCornerShape(4.dp)
                             )
                             .border(
                                 1.dp,
-                                Color(0xFF555555),
+                                BossThemeColors.BorderColor,
                                 RoundedCornerShape(4.dp)
                             )
                             .padding(horizontal = 12.dp, vertical = 2.dp),
@@ -297,7 +298,7 @@ private fun ConsoleToolbar(
                                 Text(
                                     "Search...",
                                     style = MaterialTheme.typography.body2,
-                                    color = Color(0xFF888888)
+                                    color = BossThemeColors.TextSecondary
                                 )
                             }
                             innerTextField()
@@ -319,7 +320,7 @@ private fun ConsoleToolbar(
                 Icon(
                     Icons.Default.VerticalAlignBottom,
                     "Scroll to bottom",
-                    tint = Color(0xFFCCCCCC),
+                    tint = BossThemeColors.TextPrimary,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -332,7 +333,7 @@ private fun ConsoleToolbar(
                 Icon(
                     imageVector = if (autoScroll) Icons.Default.Lock else Icons.Default.LockOpen,
                     contentDescription = if (autoScroll) "Auto-scroll enabled" else "Auto-scroll disabled",
-                    tint = if (autoScroll) Color(0xFF4A9EFF) else Color(0xFF888888),
+                    tint = if (autoScroll) BossThemeColors.AccentColor else BossThemeColors.TextSecondary,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -345,7 +346,7 @@ private fun ConsoleToolbar(
                 Icon(
                     Icons.Default.ContentCopy,
                     "Copy all logs",
-                    tint = Color(0xFFCCCCCC),
+                    tint = BossThemeColors.TextPrimary,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -358,7 +359,7 @@ private fun ConsoleToolbar(
                 Icon(
                     Icons.Default.Delete,
                     "Clear logs",
-                    tint = Color(0xFFFF6B6B),
+                    tint = BossThemeColors.ErrorColor,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -380,7 +381,7 @@ private fun LogEntryRow(entry: LogEntryData) {
         // Timestamp
         Text(
             text = entry.formatTimestamp(),
-            color = Color(0xFF888888),
+            color = BossThemeColors.TextSecondary,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
         )
