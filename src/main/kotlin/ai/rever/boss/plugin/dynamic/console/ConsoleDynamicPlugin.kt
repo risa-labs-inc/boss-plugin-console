@@ -32,5 +32,7 @@ class ConsoleDynamicPlugin : DynamicPlugin {
                 logDataProvider = provider
             )
         }
+        // Contribute console_tail/search/clear MCP tools; auto-removed on disable/unload.
+        context.registerMcpToolProvider(ConsoleMcpToolProvider(pluginId, provider))
     }
 }
