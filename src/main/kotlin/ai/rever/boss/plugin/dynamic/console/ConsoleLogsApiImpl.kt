@@ -32,9 +32,14 @@ internal class ConsoleLogsApiImpl(
     override fun logsForPlugin(pluginId: String, displayName: String?): StateFlow<List<LogEntryData>> =
         flows.getOrPut(pluginId) {
             val keywords = PluginLogMatcher.keywordsFor(pluginId, displayName ?: resolveName(pluginId))
+            val select = { entries: List<LogEntryData> ->
+                entries.filter { PluginLogMatcher.matches(it.message, keywords) }
+            }
             provider.logs
-                .map { entries -> entries.filter { PluginLogMatcher.matches(it.message, keywords) } }
-                .stateIn(scope, SharingStarted.Eagerly, emptyList())
+                .map(select)
+                // Seed synchronously so a first .value read (e.g. an MCP probe right
+                // after the flow is created) sees current history, not emptyList.
+                .stateIn(scope, SharingStarted.Eagerly, select(provider.logs.value))
         }
 
     override val pluginFilter: StateFlow<String?> get() = filter.pluginId
