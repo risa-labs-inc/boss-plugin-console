@@ -21,10 +21,12 @@ import com.arkivanov.essenty.lifecycle.Lifecycle.Callbacks
 class ConsoleComponent(
     ctx: ComponentContext,
     override val panelInfo: PanelInfo,
-    logDataProvider: LogDataProvider
+    logDataProvider: LogDataProvider,
+    pluginFilter: ConsolePluginFilter,
+    loadedPlugins: () -> List<ai.rever.boss.plugin.api.LoadedPluginInfo> = { emptyList() },
 ) : PanelComponentWithUI, ComponentContext by ctx {
 
-    private val viewModel = ConsoleViewModel(logDataProvider)
+    private val viewModel = ConsoleViewModel(logDataProvider, pluginFilter, loadedPlugins)
 
     init {
         // Dispose view model when panel closes

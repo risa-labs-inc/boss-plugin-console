@@ -2,8 +2,9 @@
   "manifestVersion": 1,
   "pluginId": "ai.rever.boss.plugin.dynamic.console",
   "displayName": "Console (Dynamic)",
-  "version": "1.0.3",
-  "apiVersion": "1.0.3",
+  "version": "1.2.0",
+  "apiVersion": "1.0.59",
+  "minBossVersion": "9.2.35",
   "mainClass": "ai.rever.boss.plugin.dynamic.console.ConsoleDynamicPlugin",
   "type": "panel",
   "description": "Displays captured stdout/stderr logs in a side panel",
@@ -17,5 +18,8 @@
     "maxThreads": 4,
     "maxRestartAttempts": 3,
     "heartbeatIntervalMs": 5000
-  }
+  },
+  "isolationMode": "out-of-process",
+  "fallback": "in-process",
+  "stateHolderClass": "ai.rever.boss.plugin.runtime.stateholders.ConsoleStateHolder"
 }
