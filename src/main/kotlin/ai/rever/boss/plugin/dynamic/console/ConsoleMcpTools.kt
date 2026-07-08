@@ -1,8 +1,10 @@
 package ai.rever.boss.plugin.dynamic.console
 
+import ai.rever.boss.plugin.api.LoadedPluginInfo
 import ai.rever.boss.plugin.api.LogDataProvider
 import ai.rever.boss.plugin.api.LogEntryData
 import ai.rever.boss.plugin.api.McpToolDefinition
+import ai.rever.boss.plugin.api.PluginLogMatcher
 import ai.rever.boss.plugin.api.McpToolHandler
 import ai.rever.boss.plugin.api.McpToolProvider
 import ai.rever.boss.plugin.api.McpToolResult
@@ -15,16 +17,25 @@ import ai.rever.boss.plugin.api.McpToolResult
 internal class ConsoleMcpToolProvider(
     override val providerId: String,
     private val logDataProvider: LogDataProvider,
+    private val loadedPlugins: () -> List<LoadedPluginInfo> = { emptyList() },
 ) : McpToolProvider {
 
     override fun tools(): List<McpToolDefinition> = listOf(
         McpToolDefinition(
             name = "console_tail",
-            description = "Return the most recent captured console log lines (stdout/stderr).",
+            description = "Return the most recent captured console log lines (stdout/stderr). " +
+                "Pass plugin_id to only return lines attributed to that plugin.",
             inputSchema = LINES_SCHEMA,
             handler = McpToolHandler { args ->
                 val n = (args.int("lines") ?: 100).coerceIn(1, 5000)
-                val lines = logDataProvider.logs.value.takeLast(n)
+                val all = logDataProvider.logs.value
+                val pluginId = args.string("plugin_id")
+                val lines = if (pluginId.isNullOrBlank()) all.takeLast(n)
+                else PluginLogMatcher.filter(
+                    all,
+                    pluginId,
+                    loadedPlugins().firstOrNull { it.pluginId == pluginId }?.displayName,
+                ).takeLast(n)
                 if (lines.isEmpty()) McpToolResult("(no console output captured)")
                 else McpToolResult(lines.joinToString("\n") { format(it) })
             },
@@ -62,7 +73,7 @@ internal class ConsoleMcpToolProvider(
 
     private companion object {
         const val LINES_SCHEMA =
-            """{"type":"object","properties":{"lines":{"type":"integer","description":"Number of trailing lines (default 100)."}}}"""
+            """{"type":"object","properties":{"lines":{"type":"integer","description":"Number of trailing lines (default 100)."},"plugin_id":{"type":"string","description":"Only lines attributed to this plugin (keyword heuristic)."}}}"""
         const val SEARCH_SCHEMA =
             """{"type":"object","properties":{"query":{"type":"string","description":"Substring to match."},"limit":{"type":"integer","description":"Max matches (default 200)."}},"required":["query"]}"""
     }

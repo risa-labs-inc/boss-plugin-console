@@ -68,6 +68,9 @@ fun ConsoleView(viewModel: ConsoleViewModel) {
     val filter by viewModel.filter.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val autoScroll by viewModel.autoScroll.collectAsState()
+    val selectedPluginName by viewModel.selectedPluginName.collectAsState()
+    val selectedPluginId by viewModel.selectedPluginId.collectAsState()
+    val pluginOptions by viewModel.pluginOptions.collectAsState()
 
     val coroutineScope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
@@ -91,6 +94,11 @@ fun ConsoleView(viewModel: ConsoleViewModel) {
             filter = filter,
             searchQuery = searchQuery,
             autoScroll = autoScroll,
+            selectedPluginLabel = selectedPluginName
+                ?: selectedPluginId?.substringAfterLast('.'),
+            pluginOptions = pluginOptions,
+            onPluginFilterOpen = { viewModel.refreshPluginOptions() },
+            onPluginFilterChange = { viewModel.setPluginFilter(it) },
             onFilterChange = { viewModel.setFilter(it) },
             onSearchQueryChange = { viewModel.setSearchQuery(it) },
             onToggleAutoScroll = { viewModel.toggleAutoScroll() },
@@ -196,6 +204,10 @@ private fun ConsoleToolbar(
     filter: LogFilterData,
     searchQuery: String,
     autoScroll: Boolean,
+    selectedPluginLabel: String?,
+    pluginOptions: List<ai.rever.boss.plugin.api.LoadedPluginInfo>,
+    onPluginFilterOpen: () -> Unit,
+    onPluginFilterChange: (ai.rever.boss.plugin.api.LoadedPluginInfo?) -> Unit,
     onFilterChange: (LogFilterData) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onToggleAutoScroll: () -> Unit,
@@ -260,6 +272,65 @@ private fun ConsoleToolbar(
                             filterMenuExpanded = false
                         }) {
                             Text(f.name)
+                        }
+                    }
+                }
+            }
+
+            // Plugin filter dropdown — narrows the stream to lines attributed
+            // to one plugin (PluginLogMatcher keyword heuristic).
+            var pluginMenuExpanded by remember { mutableStateOf(false) }
+            Box {
+                Row(
+                    modifier = Modifier
+                        .height(28.dp)
+                        .clickable {
+                            onPluginFilterOpen()
+                            pluginMenuExpanded = true
+                        }
+                        .background(
+                            BossThemeColors.BackgroundColor,
+                            RoundedCornerShape(4.dp)
+                        )
+                        .border(
+                            1.dp,
+                            BossThemeColors.BorderColor,
+                            RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = selectedPluginLabel ?: "All plugins",
+                        style = MaterialTheme.typography.body2,
+                        color = if (selectedPluginLabel != null) BossThemeColors.AccentColor
+                        else BossThemeColors.TextPrimary
+                    )
+                    Icon(
+                        Icons.Default.ArrowDropDown,
+                        "Plugin filter",
+                        tint = BossThemeColors.TextPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = pluginMenuExpanded,
+                    onDismissRequest = { pluginMenuExpanded = false }
+                ) {
+                    DropdownMenuItem(onClick = {
+                        onPluginFilterChange(null)
+                        pluginMenuExpanded = false
+                    }) {
+                        Text("All plugins")
+                    }
+                    pluginOptions.forEach { plugin ->
+                        DropdownMenuItem(onClick = {
+                            onPluginFilterChange(plugin)
+                            pluginMenuExpanded = false
+                        }) {
+                            Text(plugin.displayName)
                         }
                     }
                 }
