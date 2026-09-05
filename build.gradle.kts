@@ -33,8 +33,40 @@ repositories {
 
 dependencies {
     if (useLocalDependencies) {
-        // Local development: use boss-plugin-api JAR from sibling repo
-        compileOnly(files("$bossPluginApiPath/build/libs/boss-plugin-api-1.0.59.jar"))
+        // Local development: newest boss-plugin-api jar from the sibling repo, so this path
+        // never needs hand-bumping on api releases. It was pinned to 1.0.59, which stopped
+        // existing long ago; compileOnly(files(...)) resolves a missing path to nothing
+        // silently, so every api symbol went unresolved and a clean local build produced
+        // 213 errors that named the symbols rather than the pin. CI is unaffected - it
+        // resolves the 'latest' release into build/downloaded-deps.
+        //
+        // Compiling against the newest jar does NOT lower the install floor: plugin.json
+        // declares apiVersion 1.0.59 and that is what gates hosts. Adding a call that only
+        // exists in a newer api will compile here and fail on an older host, so check the
+        // manifest before reaching for a new symbol.
+        //
+        // The lookup lives in a provider so it runs at dependency-RESOLUTION time, not
+        // configuration time: clean/help/tasks still work on a fresh checkout with no
+        // sibling jar built, and compilation fails with this actionable message instead.
+        val newestApiJar = provider {
+            val apiJarPattern = Regex("""boss-plugin-api-(\d+)\.(\d+)\.(\d+)\.jar""")
+            file("$bossPluginApiPath/build/libs").listFiles()
+                ?.mapNotNull { jar -> apiJarPattern.matchEntire(jar.name)?.let { m -> jar to m } }
+                // Compare (major, minor, patch) numerically: 1.0.9 sorts above 1.0.71 as a
+                // string, which would silently pick an ancient jar.
+                ?.maxWithOrNull(
+                    compareBy(
+                        { it.second.groupValues[1].toInt() },
+                        { it.second.groupValues[2].toInt() },
+                        { it.second.groupValues[3].toInt() },
+                    ),
+                )?.first
+                ?: error(
+                    "No boss-plugin-api jar found in $bossPluginApiPath/build/libs - " +
+                        "run ./gradlew buildPluginJar in the sibling boss-plugin-api checkout first."
+                )
+        }
+        compileOnly(files(newestApiJar))
     } else {
         // CI: use downloaded JAR
         compileOnly(files("build/downloaded-deps/boss-plugin-api.jar"))
