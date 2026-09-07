@@ -26,8 +26,9 @@ internal class ConsoleMcpToolProvider(
             description = "Return the most recent captured console log lines (stdout/stderr). " +
                 "Pass plugin_id to only return lines attributed to that plugin. " +
                 "Defaults to the $DEFAULT_TAIL_LINES most recent lines, trimmed to about " +
-                "$MAX_DEFAULT_CHARS characters. Pass lines to widen; an explicit value is returned " +
-                "in full. A trimmed reply ends with a note counting what was left out.",
+                "$MAX_DEFAULT_CHARS characters. Pass lines to widen, up to a reply ceiling of " +
+                "$MAX_ABSOLUTE_CHARS characters. A trimmed reply ends with a note counting what " +
+                "was left out.",
             inputSchema = LINES_SCHEMA,
             handler = McpToolHandler { args ->
                 val requested = args.int("lines")
@@ -49,8 +50,8 @@ internal class ConsoleMcpToolProvider(
             description = "Search captured console output for lines containing a substring (case-insensitive). " +
                 "Defaults to the $DEFAULT_SEARCH_LIMIT most recent matches, trimmed to about " +
                 "$MAX_DEFAULT_CHARS characters, because a common term otherwise matches thousands of " +
-                "lines. Pass limit to widen; an explicit value is returned in full. A trimmed reply " +
-                "ends with a note counting what was left out.",
+                "lines. Pass limit to widen, up to a reply ceiling of $MAX_ABSOLUTE_CHARS characters. " +
+                "A trimmed reply ends with a note counting what was left out.",
             inputSchema = SEARCH_SCHEMA,
             handler = McpToolHandler { args ->
                 val query = args.string("query")
@@ -75,10 +76,11 @@ internal class ConsoleMcpToolProvider(
     )
 
     /**
-     * Render the newest [limit] entries of [pool]. When [capChars] (the caller left the count
-     * argument out) the result is additionally trimmed to [MAX_DEFAULT_CHARS] so one pathological
-     * line cannot blow the budget on its own. Anything dropped is reported in a trailing note,
-     * naming [param] as the argument that widens the reply.
+     * Render the newest [limit] entries of [pool]. Every reply is bounded: [MAX_DEFAULT_CHARS]
+     * when [capChars] (the caller left the count argument out), [MAX_ABSOLUTE_CHARS] otherwise, so
+     * no argument value can ask for an unbounded result. A note reports only what the caller did
+     * not ask to lose: with no count that is everything past the default, with an explicit count
+     * only what the char ceiling itself cut. [param] names the argument that widens the reply.
      */
     private fun render(
         pool: List<LogEntryData>,
@@ -87,29 +89,47 @@ internal class ConsoleMcpToolProvider(
         param: String,
         noun: String,
     ): String {
-        val kept = pool.takeLast(limit).let { if (capChars) fitToCharBudget(it) else it }
-        var body = kept.joinToString("\n") { format(it) }
-        if (capChars && body.length > MAX_DEFAULT_CHARS) {
-            body = body.take(MAX_DEFAULT_CHARS) + "... [line cut short. Raise $param for the full text.]"
+        val budget = if (capChars) MAX_DEFAULT_CHARS else MAX_ABSOLUTE_CHARS
+        val requested = pool.takeLast(limit).map { format(it) }
+        val kept = fitToCharBudget(requested, budget)
+        var body = kept.joinToString("\n")
+        if (body.length > budget) {
+            val widen =
+                if (capChars) "Pass $param for the full text."
+                else "It hit the $MAX_ABSOLUTE_CHARS-character reply ceiling."
+            body = body.takeChars(budget) + "... [line cut short. $widen]"
         }
-        val omitted = pool.size - kept.size
+        // An explicit count is a contract: honouring it exactly is not a loss worth reporting, so
+        // measure against what was asked for. With no count, everything past the default is a loss
+        // the caller never chose, so measure against the whole pool.
+        val asked = if (capChars) pool.size else requested.size
+        val omitted = asked - kept.size
         if (omitted <= 0) return body
         val plural = if (omitted == 1) noun else "${noun}s"
-        return "$body\n[$omitted older $plural omitted. Raise $param to include them.]"
+        val advice =
+            if (capChars) "Pass $param to include ${if (omitted == 1) "it" else "them"}."
+            else "The reply hit the $MAX_ABSOLUTE_CHARS-character ceiling."
+        return "$body\n[$omitted older $plural omitted. $advice]"
     }
 
-    /** Newest-first walk keeping the entries that fit in [MAX_DEFAULT_CHARS]; always keeps one. */
-    private fun fitToCharBudget(entries: List<LogEntryData>): List<LogEntryData> {
-        if (entries.isEmpty()) return entries
-        val last = entries.size - 1
+    /** Newest-first walk keeping the formatted lines that fit in [budget]; always keeps one. */
+    private fun fitToCharBudget(lines: List<String>, budget: Int): List<String> {
+        if (lines.isEmpty()) return lines
+        val last = lines.size - 1
         var used = 0
         var start = last
         for (i in last downTo 0) {
-            used += format(entries[i]).length + 1
-            if (used > MAX_DEFAULT_CHARS && i < last) break
+            used += lines[i].length + 1
+            if (used > budget && i < last) break
             start = i
         }
-        return entries.subList(start, entries.size)
+        return lines.subList(start, lines.size)
+    }
+
+    /** [String.take] that never splits a surrogate pair, which would leave a lone surrogate. */
+    private fun String.takeChars(n: Int): String {
+        if (length <= n) return this
+        return substring(0, if (n > 0 && this[n - 1].isHighSurrogate()) n - 1 else n)
     }
 
     private fun format(e: LogEntryData): String {
@@ -121,9 +141,17 @@ internal class ConsoleMcpToolProvider(
         const val DEFAULT_TAIL_LINES = 20
         const val DEFAULT_SEARCH_LIMIT = 10
         const val MAX_DEFAULT_CHARS = 1600
-        val LINES_SCHEMA =
-            """{"type":"object","properties":{"lines":{"type":"integer","description":"Number of trailing lines to return (max 5000). Omit for the $DEFAULT_TAIL_LINES most recent, trimmed to about $MAX_DEFAULT_CHARS characters. Pass a number to get exactly that many, untrimmed; a shortened reply says how many older lines were omitted."},"plugin_id":{"type":"string","description":"Only lines attributed to this plugin (keyword heuristic)."}}}"""
-        val SEARCH_SCHEMA =
-            """{"type":"object","properties":{"query":{"type":"string","description":"Substring to match."},"limit":{"type":"integer","description":"Maximum matches to return, taken from the most recent (max 5000). Omit for the $DEFAULT_SEARCH_LIMIT most recent, trimmed to about $MAX_DEFAULT_CHARS characters. Pass a number to get exactly that many, untrimmed; a shortened reply says how many older matches were omitted."}},"required":["query"]}"""
+
+        /**
+         * Hard ceiling on any reply, whatever the caller asks for. A console line measures ~44
+         * tokens, so the old `coerceIn(1, 5000)` bound alone allowed a ~200k-token single result -
+         * and the omission note points callers straight at raising the count. Set well above
+         * [MAX_DEFAULT_CHARS] so an explicit count stays genuinely useful.
+         */
+        const val MAX_ABSOLUTE_CHARS = 40_000
+        const val LINES_SCHEMA =
+            """{"type":"object","properties":{"lines":{"type":"integer","description":"Number of trailing lines to return (max 5000). Omit for the $DEFAULT_TAIL_LINES most recent, trimmed to about $MAX_DEFAULT_CHARS characters. Pass a number to get exactly that many, subject only to a $MAX_ABSOLUTE_CHARS-character reply ceiling; if that ceiling cuts the reply short it says how many lines it dropped."},"plugin_id":{"type":"string","description":"Only lines attributed to this plugin (keyword heuristic)."}}}"""
+        const val SEARCH_SCHEMA =
+            """{"type":"object","properties":{"query":{"type":"string","description":"Substring to match."},"limit":{"type":"integer","description":"Maximum matches to return, taken from the most recent (max 5000). Omit for the $DEFAULT_SEARCH_LIMIT most recent, trimmed to about $MAX_DEFAULT_CHARS characters. Pass a number to get exactly that many, subject only to a $MAX_ABSOLUTE_CHARS-character reply ceiling; if that ceiling cuts the reply short it says how many matches it dropped."}},"required":["query"]}"""
     }
 }
